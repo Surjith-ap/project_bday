@@ -20,31 +20,47 @@ def get_user_from_token():
     auth_header = request.headers.get('Authorization')
     
     if not auth_header:
+        logger.warning("No Authorization header found")
         return None
     
     # Extract token from "Bearer <token>"
     parts = auth_header.split()
     if len(parts) != 2 or parts[0].lower() != 'bearer':
+        logger.warning(f"Invalid Authorization header format: {auth_header[:20]}...")
         return None
     
     token = parts[1]
+    logger.info(f"Token received (first 20 chars): {token[:20]}...")
     
     try:
         # Verify token with Supabase
-        client = create_client(
-            current_app.config['SUPABASE_URL'],
-            current_app.config['SUPABASE_KEY']
-        )
+        supabase_url = current_app.config['SUPABASE_URL']
+        supabase_key = current_app.config['SUPABASE_KEY']
         
-        # Get user from token
-        user = client.auth.get_user(token)
+        logger.info(f"Creating Supabase client with URL: {supabase_url}")
+        logger.info(f"Using API key (first 20 chars): {supabase_key[:20]}...")
         
-        if user and user.user:
-            return user.user.id
+        client = create_client(supabase_url, supabase_key)
+        
+        # Get user from token - pass JWT as parameter
+        logger.info("Calling client.auth.get_user() with JWT token")
+        response = client.auth.get_user(jwt=token)
+        
+        logger.info(f"Response type: {type(response)}")
+        logger.info(f"Response: {response}")
+        
+        if response and response.user:
+            user_id = response.user.id
+            logger.info(f"Successfully verified user: {user_id}")
+            return user_id
+        
+        logger.warning("No user found in response")
         return None
         
     except Exception as e:
-        logger.error(f"Token verification failed: {e}")
+        logger.error(f"Token verification failed: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 
